@@ -4,4 +4,5 @@ This repo is used to develop code for downloading PV-GIS data from https://re.jr
 
 The code was previously developed by Songmin for downloading data from PV-GIS.
 But it was not well maintained. Now, we want to recycle it to download the PV-GIS data of all 401 NUTS3 regions in Germany,
-including temperature, radiation (4 orientations), and PV generation.
+including temperature, radiation (4 orientations), and PV generation. 
+We want 8760 hourly data from 2010 to the latest.
