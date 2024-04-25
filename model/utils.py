@@ -2,6 +2,8 @@ from pathlib import Path
 from dataclasses import dataclass
 import pandas as pd
 
+import os
+
 @dataclass
 class Var:
     region = "region"
@@ -37,5 +39,3 @@ def read_data_excel(file_name: str, sheet_name: str = None):
 
 def save_data(df: pd.DataFrame, file_name: str):
     df.to_csv(os.path.join("data", f"{file_name}.csv"), index=False)
-
-

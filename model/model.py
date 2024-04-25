@@ -7,6 +7,8 @@ import pandas as pd
 import sqlalchemy
 from pyproj import CRS, Transformer
 
+from tqdm import tqdm
+
 from model.utils import read_data_excel, save_data, Var
 
 var = Var()
@@ -205,22 +207,22 @@ class PVGIS:
     def download_pv_gis(self, countries: List[str]):
         nuts = read_data_excel("NUTS2021")
         country_no_pv_gis_data = []
+        
         for country in countries:
-            country_pv_gis_list = []
-            nuts3 = nuts.loc[nuts["nuts0"] == country]["nuts3"].to_list()
-            for region in nuts3:
+            nuts1 = nuts.loc[nuts["nuts0"] == country]["nuts1"].unique()
+
+            for region in nuts1:
                 print(f'Downloading: {country} - {region}.')
-                region_df = self.get_pv_gis_data(region)
-                country_pv_gis_list.append(region_df)
-            try:
-                country_pv_gis_df = pd.concat(country_pv_gis_list)
-                save_data(country_pv_gis_df, "pv_gis_" + country + "_nuts3")
-            except Exception as e:
-                country_no_pv_gis_data.append(country)
+
+                country_pv_gis_list = []
+                nuts3 = nuts.loc[nuts["nuts1"] == region]["nuts3"].to_list()
+
+                for subregion in tqdm(nuts3):
+                    subregion_df = self.get_pv_gis_data(subregion)
+                    country_pv_gis_list.append(subregion_df)
+                try:
+                    country_pv_gis_df = pd.concat(country_pv_gis_list)
+                    save_data(country_pv_gis_df, "pv_gis_" + country + "_" + region + "_nuts3")
+                except Exception as e:
+                    country_no_pv_gis_data.append(country)
         print(f'country_no_pv_gis_data: {country_no_pv_gis_data}')
-
-
-
-
-
-
