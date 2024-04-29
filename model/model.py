@@ -4,6 +4,7 @@ from typing import List
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+from calendar import isleap
 import sqlalchemy
 from pyproj import CRS, Transformer
 
@@ -16,10 +17,13 @@ var = Var()
 
 class PVGIS:
 
-    def __init__(self, start_year: int = 2019, end_year: int = 2019):
-        self.id_hour = np.arange(1, 8761)
-        self.start_year = start_year
-        self.end_year = end_year
+    def __init__(self, year: int = 2019): 
+        # start_year must be equal to end_year
+        # if not we get error from 'self.get_pv_gis_data()' because the result dict is not updated properly (not right length of different columns)
+        self.total_hours = self.get_total_hours(year)
+        self.id_hour = np.arange(1, self.total_hours+1)
+        self.start_year = year
+        self.end_year = year
         self.pv_calculation: int = 1
         self.peak_power: float = 1
         self.pv_loss: int = 14
@@ -62,9 +66,15 @@ class PVGIS:
                    All other values (or no value) mean "no". Not relevant for tracking planes.
     """
 
+    def scalar2array(self, value):
+        return [value for _ in range(0, self.total_hours)]
+    
     @staticmethod
-    def scalar2array(value):
-        return [value for _ in range(0, 8760)]
+    def get_total_hours(year):
+        if isleap(year):
+            return 8784
+        else:
+            return 8760
 
     @staticmethod
     def get_url_region_geo_center(nuts_level: int):
@@ -106,7 +116,7 @@ class PVGIS:
         try:
             # Read the csv from api and use 20 columns to receive the source, because depending on the parameters,
             # the number of columns could vary. Empty columns are dropped afterwards:
-            df = pd.read_csv(req, sep=",", header=None, names=range(20)).dropna(how="all", axis=1)
+            df = pd.read_csv(req, sep=",", header=None, names=range(20), low_memory=False).dropna(how="all", axis=1)
             df = df.dropna().reset_index(drop=True)
             # set header to first row
             header = df.iloc[0]
@@ -142,7 +152,7 @@ class PVGIS:
         # Read the csv from api and use 20 columns to receive the source, because depending on the parameters,
         # the number of columns could vary. Empty columns are dropped afterwards:
         try:
-            df = pd.read_csv(req, sep=",", header=None, names=range(20)).dropna(how="all", axis=1)
+            df = pd.read_csv(req, sep=",", header=None, names=range(20), low_memory=False).dropna(how="all", axis=1)
             df = df.dropna().reset_index(drop=True)
             # set header to first row
             header = df.iloc[0]
@@ -186,9 +196,11 @@ class PVGIS:
             var.year: self.start_year,
             var.id_hour: self.id_hour,
         }
+
         pv_generation_dict = self.get_pv_generation(region)
         temperature_dict = self.get_temperature(region)
         radiation_dict = self.get_radiation(region)
+
         try:
             assert pv_generation_dict[var.pv_generation].sum() != 0
             assert temperature_dict[var.temperature].sum() != 0
@@ -207,12 +219,13 @@ class PVGIS:
     def download_pv_gis(self, countries: List[str]):
         nuts = read_data_excel("NUTS2021")
         country_no_pv_gis_data = []
+        year_no_pv_gis_data = []
         
         for country in countries:
             nuts1 = nuts.loc[nuts["nuts0"] == country]["nuts1"].unique()
 
             for region in nuts1:
-                print(f'Downloading: {country} - {region}.')
+                print(f'Downloading: {self.start_year} - {country} - {region}.')
 
                 country_pv_gis_list = []
                 nuts3 = nuts.loc[nuts["nuts1"] == region]["nuts3"].to_list()
@@ -222,7 +235,9 @@ class PVGIS:
                     country_pv_gis_list.append(subregion_df)
                 try:
                     country_pv_gis_df = pd.concat(country_pv_gis_list)
-                    save_data(country_pv_gis_df, "pv_gis_" + country + "_" + region + "_nuts3")
+                    save_data(country_pv_gis_df, f"pv_gis_{country}_{region}_{self.start_year}_nuts3")
                 except Exception as e:
+                    year_no_pv_gis_data.append(self.start_year)
                     country_no_pv_gis_data.append(country)
         print(f'country_no_pv_gis_data: {country_no_pv_gis_data}')
+        return year_no_pv_gis_data
